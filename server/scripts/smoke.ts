@@ -1,0 +1,10 @@
+import { alpaca } from '../src/alpaca.js';
+import { analyze } from '../src/lib/indicators.js';
+import { getQuote, getBars } from '../src/services/market.js';
+const a = await alpaca.account();
+console.log('account', a.status, 'equity', a.equity, 'cash', a.cash, 'bp', a.buying_power);
+console.log('quote', await getQuote());
+const b = await getBars('1D'); console.log('1D bars', b.length, b[0]?.time);
+const d = await alpaca.bars('ABNB', '1Day', new Date(Date.now() - 130 * 864e5).toISOString());
+console.log('daily bars', d.length); console.log(analyze(d));
+console.log('positions', (await alpaca.positions()).length, 'orders', (await alpaca.orders('all', 5)).length);

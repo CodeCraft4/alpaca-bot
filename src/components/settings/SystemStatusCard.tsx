@@ -1,5 +1,6 @@
 import React from 'react';
 import { useHealth } from '../../lib/useHealth';
+import { apiUrl } from '../../lib/api';
 import {
   Server3D,
   Shield3D,
@@ -30,7 +31,7 @@ export const SystemStatusCard: React.FC = () => {
     {
       label: 'Backend API',
       value: serverLabel,
-      detail: 'localhost:4555',
+      detail: apiUrl('').replace(/\/api$/, '') || 'same origin (/api)',
       badgeClass: health ? okBadge : badBadge,
       dotClass: health ? 'bg-emerald-500' : 'bg-amber-500',
       renderIcon: () => <Radio3D size={20} />,

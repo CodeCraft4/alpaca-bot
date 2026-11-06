@@ -11,7 +11,9 @@ import { startPriceStream } from './services/priceStream.js';
 assertSafeTradingConfig(config);
 
 const app = express();
-app.use(cors({ origin: [config.FRONTEND_ORIGIN, 'http://127.0.0.1:5173'] }));
+// FRONTEND_ORIGIN can hold several URLs, comma separated (local + Vercel production + preview)
+const origins = config.FRONTEND_ORIGIN.split(',').map((o) => o.trim().replace(/\/$/, '')).filter(Boolean);
+app.use(cors({ origin: [...origins, 'http://localhost:5173', 'http://127.0.0.1:5173'] }));
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 

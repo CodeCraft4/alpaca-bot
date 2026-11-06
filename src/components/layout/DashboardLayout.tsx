@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { DashboardHeader } from './DashboardHeader';
 import { MobileBottomNav } from './MobileBottomNav';
+import { BackendBanner } from './BackendBanner';
 
 export const DashboardLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -25,6 +26,7 @@ export const DashboardLayout: React.FC = () => {
           className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-brand-bg focus:outline-none pb-24 lg:pb-0"
           tabIndex={-1}
         >
+          <BackendBanner />
           <Outlet />
         </main>
 

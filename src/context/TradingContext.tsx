@@ -7,7 +7,7 @@ import React, {
   useState,
   type ReactNode,
 } from 'react';
-import { api, apiUrl } from '../lib/api';
+import { API_CONFIGURED, api, apiUrl } from '../lib/api';
 import { fmtQty } from '../lib/format';
 import type {
   ActivityItem,
@@ -276,7 +276,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Live price stream (Server-Sent Events): the backend pushes every price change within ~100 ms
   useEffect(() => {
-    if (typeof EventSource === 'undefined') return;
+    if (typeof EventSource === 'undefined' || !API_CONFIGURED) return;
     const es = new EventSource(apiUrl('/stream/price'));
     es.onmessage = (ev) => {
       try {

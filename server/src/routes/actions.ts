@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { alpaca } from '../alpaca.js';
 import { config } from '../config.js';
 import { actionUrl, verifyAction, type ActionType } from '../lib/actionLinks.js';
+import { after } from '../lib/defer.js';
 import { esc } from '../services/emailTemplates.js';
 import { livePrice } from '../services/market.js';
 import { getSettings } from '../services/settings.js';
@@ -79,7 +80,7 @@ actions.post('/:action', async (req, res) => {
     const qty = Math.min(lot.openQty, held);
     if (qty <= 0) return send(res, page('Nothing to sell', '<p>You do not hold these shares any more.</p>', false), 400);
     await placeOrder({ symbol: lot.symbol, side: 'sell', type: 'market', qty: Math.floor(qty * 1e8) / 1e8 }, 'manual', `lot-${orderId}-${Date.now()}`);
-    setTimeout(() => void syncAll().catch(() => undefined), 8_000);
+    after(8_000, () => syncAll());
     return send(res, page('Sell order sent', `<p>Selling ${qty.toFixed(4)} shares at market. You will get a confirmation email with the profit/loss in a minute.</p><p style="font-size:12px;color:#827581;">Dashboard: ${esc(config.APP_URL)}</p>`));
   } catch (e) {
     return send(res, page('Something went wrong', `<p>${esc((e as Error).message)}</p>`, false), 500);

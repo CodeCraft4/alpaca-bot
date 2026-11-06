@@ -17,7 +17,7 @@ export function getPool(): pg.Pool {
     pool = new pg.Pool({
       connectionString: config.DATABASE_URL,
       ssl: { rejectUnauthorized: false },
-      max: 5,
+      max: process.env.VERCEL ? 2 : 5, // many short-lived instances: keep each one small
     });
   }
   return pool;

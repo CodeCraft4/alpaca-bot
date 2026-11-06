@@ -1,8 +1,10 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { alpaca } from '../alpaca.js';
 import { config, flag } from '../config.js';
 import { dbConfigProblem, dbConfigured, query } from '../db.js';
+import { after } from '../lib/defer.js';
 import { HttpError } from '../lib/errors.js';
 import { emailConfigured, sendTestEmail, verifyEmail } from '../services/notify.js';
 import { listActivity } from '../services/activity.js';
@@ -156,7 +158,7 @@ const closeSchema = z.object({ qty: z.number().positive().optional() }).strict()
 api.post('/positions/:symbol/close', wrap(async (req) => {
   const { qty } = parse(closeSchema, req.body ?? {});
   const order = mapOrder(await closePosition(String(req.params.symbol), qty));
-  setTimeout(() => void syncAll().catch(() => undefined), 8_000); // pick up the fill -> trade -> email quickly
+  after(8_000, () => syncAll()); // pick up the fill -> trade -> email quickly
   return order;
 }));
 
@@ -191,7 +193,7 @@ api.post('/orders/:id/sell', wrap(async (req) => {
   const qty = Math.floor(want * 1e8 - 1) / 1e8;
   if (!(qty > 0)) throw new HttpError(409, 'You do not hold these shares any more');
   const row = await placeOrder({ symbol, side: 'sell', type: 'market', qty }, 'manual', `lot-${id}-${Date.now()}`, { heldQty: heldHint ?? Number.POSITIVE_INFINITY });
-  setTimeout(() => void syncAll().catch(() => undefined), 8_000); // fill -> trade -> "sold" email
+  after(8_000, () => syncAll()); // fill -> trade -> "sold" email
   return mapOrder(row);
 }));
 
@@ -222,6 +224,16 @@ api.post('/settings/reset', wrap(() => resetSettings()));
 api.get('/activity', wrap((req) => listActivity(Number(req.query.limit) || 50)));
 api.post('/notifications/test', wrap(async () => sendTestEmail()));
 api.post('/sync', wrap(() => syncAll()));
+// Serverless hosts have no always-on worker, so something must call this every minute (Vercel Cron or an external pinger).
+// Auth: "Authorization: Bearer <CRON_SECRET>" (Vercel Cron does this automatically) or ?key=<CRON_SECRET>.
+api.get('/cron/automation', wrap(async (req) => {
+  if (!config.CRON_SECRET) throw new HttpError(503, 'CRON_SECRET is not configured on the server', 'cron_not_configured');
+  const given = String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, '') || String(req.query.key ?? '');
+  const a = createHash('sha256').update(given).digest();
+  const b = createHash('sha256').update(config.CRON_SECRET).digest();
+  if (!timingSafeEqual(a, b)) throw new HttpError(401, 'Invalid cron key', 'unauthorized');
+  return runAutomationOnce();
+}));
 api.post('/automation/run', wrap(async (req) => runAutomationOnce({ force: req.query.force === 'true' })));
 api.get('/automation/status', wrap(async () => ({
   enabled: flag(config.AUTOMATION_ENABLED), dryRun: flag(config.AUTOMATION_DRY_RUN),

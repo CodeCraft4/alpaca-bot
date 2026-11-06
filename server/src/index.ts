@@ -34,9 +34,15 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(config.PORT, () => {
-  console.log(`ALPHACA-ABNB server on http://localhost:${config.PORT} [${config.ALPACA_TRADING_ENV}]`);
-  startPriceStream();
-  if (dbConfigured()) startAutomation();
-  else console.warn(`${dbConfigProblem()}: API disabled except /api/health, automation off`);
-});
+// Vercel imports this file and calls the exported app per request: no port, no background timers there.
+// (There, automation runs through GET /api/cron/automation and the live price hub starts on the first stream request.)
+if (!process.env.VERCEL) {
+  app.listen(config.PORT, () => {
+    console.log(`ALPHACA-ABNB server on http://localhost:${config.PORT} [${config.ALPACA_TRADING_ENV}]`);
+    startPriceStream();
+    if (dbConfigured()) startAutomation();
+    else console.warn(`${dbConfigProblem()}: API disabled except /api/health, automation off`);
+  });
+}
+
+export default app;

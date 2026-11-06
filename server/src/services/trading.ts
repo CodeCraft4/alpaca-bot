@@ -6,6 +6,7 @@ import { query } from '../db.js';
 import { HttpError } from '../lib/errors.js';
 import { validateOrder } from '../lib/risk.js';
 import { logActivity } from './activity.js';
+import { defer } from '../lib/defer.js';
 import { livePrice } from './market.js';
 import { notifyOrder, notifyRejected } from './notify.js';
 import { getSettings } from './settings.js';
@@ -73,6 +74,7 @@ export async function applyPositionRule(symbol: string, avgEntry: number) {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const deferLog = (a: Parameters<typeof logActivity>[0]) => defer(logActivity(a));
 
 /** DB-shaped row for an Alpaca order, so the API can answer without waiting for the (remote) database write. */
 function rowFromAlpaca(o: AlpacaOrder, extra: Record<string, unknown> = {}) {
@@ -92,7 +94,7 @@ function rowFromAlpaca(o: AlpacaOrder, extra: Record<string, unknown> = {}) {
 
 /** Save the order (with its target) right after the response has been sent; retried so a blip cannot lose the target. */
 function persistInBackground(o: AlpacaOrder, extra: Record<string, unknown>) {
-  void (async () => {
+  defer((async () => {
     for (let i = 0; i < 4; i++) {
       try {
         await upsertAlpacaOrder(o, extra);
@@ -106,7 +108,7 @@ function persistInBackground(o: AlpacaOrder, extra: Record<string, unknown>) {
         }
       }
     }
-  })();
+  })());
 }
 
 /**
@@ -160,15 +162,15 @@ export async function placeOrder(
       client_order_id: clientId ?? `${source === 'manual' ? 'man' : 'auto'}-${randomUUID()}`,
     });
   } catch (e) {
-    void logActivity({ type: 'trade', level: 'error', title: `${symbol} ${req.side} order rejected`, detail: (e as Error).message });
-    void notifyRejected(symbol, req.side, (e as Error).message);
+    deferLog({ type: 'trade', level: 'error', title: `${symbol} ${req.side} order rejected`, detail: (e as Error).message });
+    defer(notifyRejected(symbol, req.side, (e as Error).message));
     throw e;
   }
 
   const extra = { source, targetPct, stopLossPct, targetPrice, stopLossPrice, entryPrice: entry, notes: req.notes };
   persistInBackground(placed, extra);
 
-  void logActivity({
+  deferLog({
     type: 'trade', level: 'success',
     title: `${symbol} ${req.side.toUpperCase()} order ${placed.status}`,
     detail: `${req.qty ? `${req.qty} sh` : `$${req.notional}`} ${req.type}${req.limitPrice ? ` @ $${req.limitPrice}` : ''} (~$${estimatedValue.toFixed(2)})`,
@@ -178,14 +180,14 @@ export async function placeOrder(
   // Email (non-blocking) for BUY orders only. A sell is announced when it completes (trade-closed email).
   if (req.side === 'buy') {
     const shares = req.qty ?? (req.notional ? req.notional / entry : 0);
-    void (async () => {
+    defer((async () => {
       await sleep(1500); // let the background save land first
       await notifyOrder({
         stage: 'placed', orderId: placed.id, status: placed.status, symbol, side: 'buy', type: req.type,
         shares, entryPrice: entry, currentPrice: price, cost: estimatedValue,
         targetPct: targetPct ?? 0, targetPrice: targetPrice ?? 0, stopLossPct, stopLossPrice,
       });
-    })();
+    })());
   }
   return rowFromAlpaca(placed, extra);
 }
@@ -194,7 +196,7 @@ export async function cancelOrder(alpacaOrderId: string) {
   await alpaca.cancelOrder(alpacaOrderId); // Alpaca rejects it if the order is not cancellable any more
   const latest = await alpaca.order(alpacaOrderId);
   persistInBackground(latest, {}); // keeps the targets already stored for this order
-  void logActivity({ type: 'trade', title: `Order ${alpacaOrderId.slice(0, 8)} cancelled`, detail: latest.symbol });
+  deferLog({ type: 'trade', title: `Order ${alpacaOrderId.slice(0, 8)} cancelled`, detail: latest.symbol });
   return rowFromAlpaca(latest);
 }
 
@@ -274,7 +276,7 @@ export async function closePosition(symbol: string, qty?: number) {
   const placed = await alpaca.closePosition(sym, qty);
   const extra = { source: 'manual', notes: 'Manual close' };
   persistInBackground(placed, extra);
-  void logActivity({ type: 'trade', level: 'success', title: `${sym} position close submitted`, detail: qty ? `${qty} shares` : 'full position' });
+  deferLog({ type: 'trade', level: 'success', title: `${sym} position close submitted`, detail: qty ? `${qty} shares` : 'full position' });
   return rowFromAlpaca(placed, extra);
 }
 

@@ -45,6 +45,8 @@ const schema = z.object({
   // Real-time price + news/earnings context (https://finnhub.io, free key). Empty = fall back to Alpaca IEX.
   // Alpaca paper fills a $N notional buy as $(N - 0.01). Added back so $20 really means $20 (paper only).
   NOTIONAL_TOP_UP: z.coerce.number().default(0.01),
+  // Secret for GET /api/cron/automation (Vercel Cron sends it as a Bearer token). Needed when the backend is serverless.
+  CRON_SECRET: z.string().default(''),
   FINNHUB_API_KEY: z.string().default(''),
   XAI_API_KEY: z.string().default(''),
   XAI_MODEL: z.string().default('grok-4'),

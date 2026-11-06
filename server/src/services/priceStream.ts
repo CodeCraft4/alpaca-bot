@@ -25,6 +25,7 @@ export const getPriceState = () => state;
 export function onPrice(fn: (s: PriceState) => void) {
   bus.on('price', fn);
   subscribers++;
+  startPriceStream(); // no-op when already running (it is started at boot on a normal server)
 }
 export function offPrice(fn: (s: PriceState) => void) {
   bus.off('price', fn);

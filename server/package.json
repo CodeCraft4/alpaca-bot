@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "build": "node -e \"console.log('No build step: Vercel compiles src/index.ts itself')\"",
     "typecheck": "tsc --noEmit",
     "migrate": "tsx scripts/migrate.ts",
     "test": "vitest run",
@@ -29,5 +30,8 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

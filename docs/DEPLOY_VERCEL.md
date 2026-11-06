@@ -12,7 +12,6 @@ Vercel -> Add New -> Project -> `CodeCraft4/alpaca-bot` -> **Root Directory: `se
 Add the environment variables (Production, and Preview if you use it), same names as the local `.env`:
 
 ```
-NODE_ENV=production
 ALPACA_API_KEY_ID=...            ALPACA_API_SECRET_KEY=...
 ALPACA_API_BASE_URL=https://paper-api.alpaca.markets
 ALPACA_DATA_BASE_URL=https://data.alpaca.markets/v2
@@ -35,6 +34,10 @@ APP_URL=https://<your-frontend>.vercel.app                (links inside emails)
 many short connections:
 `postgresql://postgres.<ref>:<URL-ENCODED-PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:6543/postgres`
 (encode special characters in the password: `!` -> `%21`, `$` -> `%24`, `@` -> `%40`).
+
+**Project settings for the backend (Settings -> General / Build):** Framework Preset **Express** (or *Other*),
+Build Command **empty or `npm run build`** (a placeholder script exists), Output Directory **empty**, Install Command default.
+Do **not** set `NODE_ENV` yourself: Vercel sets it, and `NODE_ENV=production` at build time makes npm skip dev dependencies.
 
 Deploy, then open `https://<backend>.vercel.app/api/health`. It must show `alpaca: ok, database: ok`.
 
@@ -84,3 +87,12 @@ Without a cron, orders, sells, the dashboard and emails on order events still wo
   authentication (Supabase Auth) before sharing it. `CRON_SECRET` only protects the cron endpoint.
 - Keep `ALPACA_TRADING_ENV=paper` and `ALLOW_LIVE=false`.
 - Rotate any key that was ever pasted into a chat or a ticket.
+
+## Troubleshooting
+- **`npm error Missing script: "build"`** - the backend project runs `npm run build` but `server/package.json` had none. Fixed in the repo
+  (a placeholder `build` script); redeploy. Also check the project really has **Root Directory `server`**.
+- **The frontend stopped working after I deployed the backend** - the backend must be its **own, second** Vercel project. If you
+  changed the Root Directory of the frontend project to `server`, change it back to `./` and create a new project for `server`.
+- **Frontend shows "Cannot reach the backend"** - `VITE_API_URL` is missing/wrong in the *frontend* project (then redeploy it), or the
+  backend's `FRONTEND_ORIGIN` does not contain the exact frontend URL (then redeploy the backend).
+- **esbuild "install scripts" warning in the log** - harmless.

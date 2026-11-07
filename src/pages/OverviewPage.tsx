@@ -5,6 +5,7 @@ import { SummaryStatCard } from '../components/overview/SummaryStatCard';
 import { ABNBPriceChart } from '../components/overview/ABNBPriceChart';
 import { AIMarketAnalysisCard } from '../components/overview/AIMarketAnalysisCard';
 import { OpenPositionsTable } from '../components/overview/OpenPositionsTable';
+import { WaitingOrdersCard } from '../components/overview/WaitingOrdersCard';
 // import { RecentActivityList } from '../components/overview/RecentActivityList';
 import { NewOrderModal } from '../components/orders/NewOrderModal';
 import { useTradingContext } from '../context/TradingContext';
@@ -130,7 +131,9 @@ export const OverviewPage: React.FC = () => {
           </div>
         </section>
 
-        {/* 3. Open Positions Table */}
+        {/* 3. Orders accepted but not filled yet (e.g. placed while the market is closed), then open positions */}
+        <WaitingOrdersCard />
+
         <section>
           <OpenPositionsTable />
         </section>

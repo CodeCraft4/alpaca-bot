@@ -43,6 +43,7 @@ export interface TradingContextType {
   dailyChange: number;
   dailyChangePct: number;
   marketOpen: boolean;
+  nextOpen: string; // when the market opens next (ISO)
   priceSource: string;
   /** Time of the last real trade (ms) and Alpaca's own last price, for the "how fresh is this" display */
   lastTradeTs: number;
@@ -80,7 +81,7 @@ export interface TradingContextType {
 }
 
 // ---- Backend response shapes -------------------------------------------------
-interface ApiQuote { price: number; change: number; changePct: number; marketOpen: boolean; source: string }
+interface ApiQuote { price: number; change: number; changePct: number; marketOpen: boolean; nextOpen: string; source: string }
 interface ApiAccount { equity: number; cash: number }
 interface ApiPosition {
   id: string; symbol: string; quantity: number; avgEntry: number; currentPrice: number; unrealizedPL: number;
@@ -200,6 +201,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [availableCash, setAvailableCash] = useState(0);
   const [marketOpen, setMarketOpen] = useState(false);
   const [priceSource, setPriceSource] = useState('');
+  const [nextOpen, setNextOpen] = useState('');
   const [lastTradeTs, setLastTradeTs] = useState(0);
   const [alpacaPrice, setAlpacaPrice] = useState<number | null>(null);
   const [streamLive, setStreamLive] = useState(false);
@@ -243,6 +245,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
       setMarketOpen(quote.marketOpen);
       setPriceSource(quote.source);
+      setNextOpen(quote.nextOpen);
       setEquity(account.equity);
       setAvailableCash(account.cash);
       setSettings(apiSettings);
@@ -407,7 +410,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
   return (
     <TradingContext.Provider
       value={{
-        equity, availableCash, currentPrice, dailyChange, dailyChangePct, marketOpen, priceSource, lastTradeTs, alpacaPrice, streamLive, isConnecting, lastUpdated,
+        equity, availableCash, currentPrice, dailyChange, dailyChangePct, marketOpen, nextOpen, priceSource, lastTradeTs, alpacaPrice, streamLive, isConnecting, lastUpdated,
         backendError, openPositions, orders, completedTrades, recentActivities, settings,
         createNewOrder, cancelOrder, editOrderTargets, sellPosition, sellOrder, updateSettings, resetSettings, refreshAlpacaData, refreshAll, refreshNonce,
       }}

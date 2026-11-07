@@ -32,8 +32,23 @@ export const MarketClosedScreen: React.FC = () => {
   const waiting = orders.filter((o) => o.status === 'Active' || o.status === 'Pending').length;
 
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border-2 border-red-200 bg-gradient-to-br from-red-50 via-white to-red-50 px-6 py-10 sm:py-14 text-center shadow-card">
+    <div className="space-y-4">
+      {/* Compact status strip (nothing here can be acted on) */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[
+          { icon: <Wallet3D size={22} />, label: 'Account equity', value: fmtUsd(equity) },
+          { icon: <Layers3D size={22} />, label: 'Open positions', value: `${openPositions.length}${held > 0 ? ` · ${fmtQty(held)} sh` : ''}` },
+          { icon: <Calendar3D size={22} />, label: 'Waiting orders', value: String(waiting) },
+        ].map((c) => (
+          <div key={c.label} className="bg-white rounded-xl border border-brand-border shadow-card px-3 py-1.5 min-h-[34px] flex items-center gap-2.5">
+            {c.icon}
+            <span className="text-[11px] uppercase font-semibold text-brand-muted">{c.label}</span>
+            <span className="ml-auto font-mono font-extrabold text-sm text-brand-text">{c.value}</span>
+          </div>
+        ))}
+      </section>
+
+      <section className="relative overflow-hidden rounded-3xl border-2 border-red-200 bg-gradient-to-br from-red-50 via-white to-red-50 px-6 py-[25px] sm:py-[41px] text-center shadow-card">
         <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-red-200/40 blur-3xl" aria-hidden />
         <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-red-200/40 blur-3xl" aria-hidden />
 
@@ -74,33 +89,6 @@ export const MarketClosedScreen: React.FC = () => {
             <Link to="/history" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-white border border-brand-border text-brand-text hover:border-pink-300 shadow-sm">
               <Chart3D size={20} /> Trade history
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Nothing here can be acted on; it just shows that your money and positions are safe */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-brand-border shadow-card p-4 flex items-center gap-3">
-          <Wallet3D size={34} />
-          <div>
-            <div className="text-[11px] uppercase font-semibold text-brand-muted">Account equity</div>
-            <div className="font-mono font-extrabold text-lg text-brand-text">{fmtUsd(equity)}</div>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-brand-border shadow-card p-4 flex items-center gap-3">
-          <Layers3D size={34} />
-          <div>
-            <div className="text-[11px] uppercase font-semibold text-brand-muted">Open positions</div>
-            <div className="font-mono font-extrabold text-lg text-brand-text">
-              {openPositions.length} <span className="text-xs font-semibold text-brand-muted">{held > 0 ? `· ${fmtQty(held)} shares` : ''}</span>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-brand-border shadow-card p-4 flex items-center gap-3">
-          <Calendar3D size={34} />
-          <div>
-            <div className="text-[11px] uppercase font-semibold text-brand-muted">Waiting orders</div>
-            <div className="font-mono font-extrabold text-lg text-brand-text">{waiting}</div>
           </div>
         </div>
       </section>

@@ -17,7 +17,6 @@ import { OrderDetailsModal } from '../components/orders/OrderDetailsModal';
 import { EditTargetsModal } from '../components/orders/EditTargetsModal';
 import { CancelOrderModal } from '../components/orders/CancelOrderModal';
 import { NewOrderModal } from '../components/orders/NewOrderModal';
-import { MarketClosed3D } from '../components/ui/icons3d';
 import type { OrderItem } from '../types/trading';
 
 const PAGE_SIZE = 8;
@@ -162,16 +161,6 @@ export const OrdersPage: React.FC = () => {
     >
       {/* 2. Order Statistics Cards */}
       <section>
-        {closed && (
-          <div role="status" className="flex items-center gap-3 rounded-2xl border-2 border-red-200 bg-red-50 px-4 py-3">
-            <MarketClosed3D size={40} />
-            <div>
-              <p className="text-sm font-extrabold uppercase tracking-wide text-red-600">Market closed</p>
-              <p className="text-xs text-red-900/80">You can review your orders and history. New orders and selling are disabled until the market opens.</p>
-            </div>
-          </div>
-        )}
-
         <HoldingsSummary />
         <LiveOpenOrders onViewDetails={setSelectedOrderForDetails} onEditTargets={setSelectedOrderForEdit} />
         <OrderStatsCards orders={orders} />

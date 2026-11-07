@@ -46,6 +46,7 @@ export interface TradingContextType {
   /** false until the first answer from the backend; the "market closed" screen waits for this */
   marketStatusKnown: boolean;
   nextOpen: string; // when the market opens next (ISO)
+  nextClose: string; // when the current/next session closes (ISO)
   priceSource: string;
   /** Time of the last real trade (ms) and Alpaca's own last price, for the "how fresh is this" display */
   lastTradeTs: number;
@@ -83,7 +84,7 @@ export interface TradingContextType {
 }
 
 // ---- Backend response shapes -------------------------------------------------
-interface ApiQuote { price: number; change: number; changePct: number; marketOpen: boolean; nextOpen: string; source: string }
+interface ApiQuote { price: number; change: number; changePct: number; marketOpen: boolean; nextOpen: string; nextClose: string; source: string }
 interface ApiAccount { equity: number; cash: number }
 interface ApiPosition {
   id: string; symbol: string; quantity: number; avgEntry: number; currentPrice: number; unrealizedPL: number;
@@ -205,6 +206,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [marketStatusKnown, setMarketStatusKnown] = useState(false);
   const [priceSource, setPriceSource] = useState('');
   const [nextOpen, setNextOpen] = useState('');
+  const [nextClose, setNextClose] = useState('');
   const [lastTradeTs, setLastTradeTs] = useState(0);
   const [alpacaPrice, setAlpacaPrice] = useState<number | null>(null);
   const [streamLive, setStreamLive] = useState(false);
@@ -250,6 +252,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
       setMarketStatusKnown(true);
       setPriceSource(quote.source);
       setNextOpen(quote.nextOpen);
+      setNextClose(quote.nextClose);
       setEquity(account.equity);
       setAvailableCash(account.cash);
       setSettings(apiSettings);
@@ -414,7 +417,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
   return (
     <TradingContext.Provider
       value={{
-        equity, availableCash, currentPrice, dailyChange, dailyChangePct, marketOpen, marketStatusKnown, nextOpen, priceSource, lastTradeTs, alpacaPrice, streamLive, isConnecting, lastUpdated,
+        equity, availableCash, currentPrice, dailyChange, dailyChangePct, marketOpen, marketStatusKnown, nextOpen, nextClose, priceSource, lastTradeTs, alpacaPrice, streamLive, isConnecting, lastUpdated,
         backendError, openPositions, orders, completedTrades, recentActivities, settings,
         createNewOrder, cancelOrder, editOrderTargets, sellPosition, sellOrder, updateSettings, resetSettings, refreshAlpacaData, refreshAll, refreshNonce,
       }}

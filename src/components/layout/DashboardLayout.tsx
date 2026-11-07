@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { DashboardHeader } from './DashboardHeader';
 import { MobileBottomNav } from './MobileBottomNav';
 import { BackendBanner } from './BackendBanner';
+import { MarketWarningBar } from './MarketWarningBar';
 
 export const DashboardLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -20,6 +21,7 @@ export const DashboardLayout: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 h-[100dvh] overflow-hidden relative">
         {/* Dynamic Header */}
         <DashboardHeader onMenuToggle={() => setMobileMenuOpen(true)} />
+        <MarketWarningBar />
 
         {/* Scrollable Viewport - with bottom padding on mobile for floating bottom navigation */}
         <main

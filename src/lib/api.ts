@@ -2,7 +2,10 @@
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 
 /** True when the app knows where the backend is: a configured URL, or the dev server's /api proxy. */
-export const API_CONFIGURED = Boolean(BASE) || import.meta.env.DEV;
+// The /api proxy only exists on the local dev server. A deployed site (even one built in development mode by mistake)
+// must have VITE_API_URL, otherwise /api would hit the static host itself and return index.html.
+const onLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+export const API_CONFIGURED = Boolean(BASE) || onLocalhost;
 const NOT_CONFIGURED = 'Backend URL is not set. In Vercel, add the environment variable VITE_API_URL (your backend URL) and redeploy.';
 
 /** Full URL of a backend path (used by the live price stream). */

@@ -88,6 +88,7 @@ async function context(symbol: string) {
 const whenStr = (d = new Date()) => d.toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' }) + ' ET';
 
 export interface PlacedInfo {
+  count?: number;
   stage: 'placed' | 'filled';
   orderId: string; status: string; symbol: string; side: 'buy' | 'sell'; type: string;
   shares: number; entryPrice: number; currentPrice: number; cost: number;

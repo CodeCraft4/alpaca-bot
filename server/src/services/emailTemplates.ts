@@ -24,6 +24,7 @@ const C = {
 };
 
 export interface OrderEmailData {
+  count?: number; // several identical orders placed together
   stage: 'placed' | 'filled';
   symbol: string;
   side: 'buy' | 'sell';
@@ -172,8 +173,9 @@ export function sparkBars(closes: number[]): string {
 export function renderOrderEmail(d: OrderEmailData) {
   const m = orderMath(d.entryPrice, d.shares, d.targetPrice, d.stopLossPrice, 'buy');
   const verb = d.side === 'buy' ? 'BUY' : 'SELL';
+  const many = (d.count ?? 1) > 1;
   const title = d.stage === 'placed'
-    ? `${verb} order placed: ${d.symbol}`
+    ? (many ? `${d.count} ${verb} orders placed: ${d.symbol}` : `${verb} order placed: ${d.symbol}`)
     : `${verb} order filled: ${d.symbol}`;
   const sent = d.sentiment;
   const sentColor = sent?.label === 'Bullish' ? C.good : sent?.label === 'Bearish' ? C.bad : C.muted;
@@ -193,6 +195,7 @@ export function renderOrderEmail(d: OrderEmailData) {
     section('Order details', detailRows([
       ['Symbol', d.symbol],
       ['Side / type', `${verb} · ${d.type.toUpperCase()}`],
+      ...(many ? [['Orders', `${d.count} × ${money(d.cost / (d.count ?? 1))} each`] as [string, string]] : []),
       ['Status', d.status],
       ['Entry price', usd(d.entryPrice)],
       ['Target price', `${usd(d.targetPrice)} (${pct(d.targetPct)})`],
@@ -220,7 +223,7 @@ export function renderOrderEmail(d: OrderEmailData) {
   ].filter(Boolean).join('\n');
 
   return {
-    subject: `${d.stage === 'placed' ? '📌' : '✅'} ${verb} ${d.symbol} ${d.stage}: target ${usd(m.profitAtTarget, true)} / ${m.lossAtStop === null ? 'no stop' : `stop ${usd(m.lossAtStop, true)}`}`,
+    subject: `${d.stage === 'placed' ? '📌' : '✅'} ${verb} ${many ? `${d.count}× ` : ''}${d.symbol} ${d.stage}: target ${usd(m.profitAtTarget, true)} / ${m.lossAtStop === null ? 'no stop' : `stop ${usd(m.lossAtStop, true)}`}`,
     html: shell({ preheader: `Target ${usd(d.targetPrice)} (${usd(m.profitAtTarget, true)})${d.stopLossPrice === null ? ', no stop-loss' : `, stop ${usd(d.stopLossPrice)} (${usd(m.lossAtStop ?? 0, true)})`}`, title, badge: d.stage === 'placed' ? 'ORDER PLACED' : 'ORDER FILLED', badgeColor: C.brand, body, env: d.env }),
     text,
   };

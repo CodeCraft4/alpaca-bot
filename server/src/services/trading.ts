@@ -120,7 +120,7 @@ export async function placeOrder(
   req: OrderRequest,
   source: 'manual' | 'automation' = 'manual',
   clientId?: string,
-  opts: { heldQty?: number } = {},
+  opts: { heldQty?: number; silent?: boolean } = {}, // silent: the caller sends one summary email for a batch
 ) {
   const symbol = req.symbol.toUpperCase();
   const isSell = req.side === 'sell';
@@ -178,7 +178,7 @@ export async function placeOrder(
   });
 
   // Email (non-blocking) for BUY orders only. A sell is announced when it completes (trade-closed email).
-  if (req.side === 'buy') {
+  if (req.side === 'buy' && !opts.silent) {
     const shares = req.qty ?? (req.notional ? req.notional / entry : 0);
     defer((async () => {
       await sleep(1500); // let the background save land first

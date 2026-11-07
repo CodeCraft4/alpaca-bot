@@ -33,6 +33,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose })
   const [limitPrice, setLimitPrice] = useState<number>(0);
   const [targetPct, setTargetPct] = useState<number>(settings.profitTargetPct || 3);
   const [errorMessage, setErrorMessage] = useState('');
+  const [count, setCount] = useState(1); // how many identical orders to place at once
 
   const isBuy = side === 'Buy';
   const price = orderType === 'Limit' && limitPrice > 0 ? limitPrice : currentPrice;
@@ -42,10 +43,13 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose })
   const heldShares = openPositions.reduce((a, p) => a + p.quantity, 0);
   const targetPrice = price * (1 + (targetPct || 0) / 100);
   const profitIfHit = dollars * ((targetPct || 0) / 100);
+  const orderCount = isBuy ? count : 1;
+  const totalDollars = dollars * orderCount;
 
   useEffect(() => {
     if (isOpen) {
       setErrorMessage('');
+      setCount(1);
       if (currentPrice > 0) setLimitPrice(currentPrice);
       setTargetPct(settings.profitTargetPct || 3);
     }
@@ -65,7 +69,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose })
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (num <= 0) return setErrorMessage('Enter an amount.');
-    if (isBuy && dollars > availableCash + 0.005) return setErrorMessage(`Not enough cash ($${availableCash.toFixed(2)} available).`);
+    if (isBuy && totalDollars > availableCash + 0.005) {
+      return setErrorMessage(`Not enough cash: ${orderCount} × $${dollars.toFixed(2)} = $${totalDollars.toFixed(2)}, but $${availableCash.toFixed(2)} is available.`);
+    }
     if (!isBuy && shares > heldShares + 1e-6) return setErrorMessage(`You only hold ${fmtQty(heldShares)} shares.`);
     try {
       localStorage.setItem(LAST_KEY, String(num));
@@ -82,6 +88,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose })
       limitPrice: orderType === 'Limit' ? limitPrice : undefined,
       targetPct,
       stopLossPct: 0,
+      count: orderCount,
     });
     onClose();
   };
@@ -182,6 +189,35 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose })
           </p>
         </div>
 
+        {/* Number of orders (buy only): that many identical orders are sent to Alpaca at the same moment */}
+        {isBuy && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-brand-border bg-brand-bg/50 px-3 py-2">
+            <div>
+              <div className="text-xs font-semibold text-brand-text">Number of orders</div>
+              <div className="text-[10px] text-brand-muted font-mono">
+                {count} × ${dollars.toFixed(2)} = ${totalDollars.toFixed(2)} total
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={() => setCount((c) => Math.max(1, c - 1))} className="w-8 h-8 rounded-lg border border-brand-border text-lg font-bold text-brand-muted hover:bg-white" aria-label="Fewer orders">
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={count}
+                onChange={(e) => setCount(Math.min(20, Math.max(1, Math.floor(parseFloat(e.target.value) || 1))))}
+                className="w-14 text-center px-1 py-1.5 rounded-lg border border-brand-border bg-white font-mono font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent/30"
+                aria-label="Number of orders"
+              />
+              <button type="button" onClick={() => setCount((c) => Math.min(20, c + 1))} className="w-8 h-8 rounded-lg border border-brand-border text-lg font-bold text-brand-muted hover:bg-white" aria-label="More orders">
+                +
+              </button>
+            </div>
+          </div>
+        )}
+
         {orderType === 'Limit' && (
           <div>
             <label className="block text-[11px] font-semibold text-brand-muted mb-0.5">Limit price ($)</label>
@@ -217,8 +253,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose })
                 <div className="font-mono font-bold text-emerald-700">${targetPrice.toFixed(2)}</div>
               </div>
               <div>
-                <div className="text-brand-muted">Profit</div>
-                <div className="font-mono font-bold text-emerald-700">+${profitIfHit.toFixed(2)}</div>
+                <div className="text-brand-muted">Profit{orderCount > 1 ? ` (all ${orderCount})` : ''}</div>
+                <div className="font-mono font-bold text-emerald-700">+${(profitIfHit * orderCount).toFixed(2)}</div>
               </div>
             </div>
           </div>
@@ -229,8 +265,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose })
           {isBuy ? (
             <>
               <span>Cash ${availableCash.toFixed(2)}</span>
-              <span className="text-brand-primary font-bold">Cost ${dollars.toFixed(2)}</span>
-              <span className={availableCash - dollars < 0 ? 'text-brand-danger' : 'text-emerald-700'}>Left ${(availableCash - dollars).toFixed(2)}</span>
+              <span className="text-brand-primary font-bold">Cost ${totalDollars.toFixed(2)}</span>
+              <span className={availableCash - totalDollars < 0 ? 'text-brand-danger' : 'text-emerald-700'}>Left ${(availableCash - totalDollars).toFixed(2)}</span>
             </>
           ) : (
             <>
@@ -251,7 +287,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose })
             type="submit"
             className={`col-span-2 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm active:scale-[0.98] transition-transform ${isBuy ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-primary hover:bg-brand-sidebar'}`}
           >
-            Place {side.toUpperCase()} Order (${dollars.toFixed(2)})
+            Place {orderCount > 1 ? `${orderCount} ` : ''}{side.toUpperCase()} Order{orderCount > 1 ? 's' : ''} (${totalDollars.toFixed(2)})
           </button>
         </div>
       </form>

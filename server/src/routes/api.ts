@@ -4,9 +4,9 @@ import { z } from 'zod';
 import { alpaca } from '../alpaca.js';
 import { config, flag } from '../config.js';
 import { dbConfigProblem, dbConfigured, query } from '../db.js';
-import { after } from '../lib/defer.js';
+import { after, defer } from '../lib/defer.js';
 import { HttpError } from '../lib/errors.js';
-import { emailConfigured, sendTestEmail, verifyEmail } from '../services/notify.js';
+import { emailConfigured, notifyOrder, sendTestEmail, verifyEmail } from '../services/notify.js';
 import { listActivity } from '../services/activity.js';
 import { automationState, runAutomationOnce } from '../services/automation.js';
 import { offPrice, onPrice, type PriceState } from '../services/priceStream.js';
@@ -165,6 +165,37 @@ api.post('/positions/:symbol/close', wrap(async (req) => {
 // --- Orders ----------------------------------------------------------------
 api.get('/orders', wrap(async (req) =>
   listOrders({ status: req.query.status as string | undefined, limit: Number(req.query.limit) || undefined })));
+
+// Several identical BUY orders at once (same amount, same target), all sent to Alpaca in parallel.
+api.post('/orders/batch', wrap(async (req, res) => {
+  const { count: rawCount, ...rest } = (req.body ?? {}) as Record<string, unknown>;
+  const count = Number(rawCount);
+  if (!Number.isInteger(count) || count < 1 || count > 20) throw new HttpError(400, 'count must be a whole number from 1 to 20', 'validation');
+  const body = parse(orderSchema, rest);
+  if (body.side !== 'buy') throw new HttpError(400, 'Multiple orders are available for BUY only', 'validation');
+
+  const results = await Promise.allSettled(Array.from({ length: count }, () => placeOrder(body, 'manual', undefined, { silent: true })));
+  const rows = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+  const failed = results.flatMap((r) => (r.status === 'rejected' ? [{ error: (r.reason as Error).message }] : []));
+  if (!rows.length) {
+    const first = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+    throw first.reason;
+  }
+
+  // ONE summary email for the whole batch (not one per order)
+  const first = rows[0];
+  const entry = Number(first.entry_price ?? 0);
+  const perCost = body.notional ?? (body.qty ?? 0) * entry;
+  defer(notifyOrder({
+    stage: 'placed', count: rows.length, orderId: first.alpaca_order_id, status: first.status, symbol: first.symbol, side: 'buy', type: body.type,
+    shares: rows.reduce((a, r) => a + (r.qty !== null ? Number(r.qty) : r.notional !== null && entry ? Number(r.notional) / entry : 0), 0),
+    entryPrice: entry, currentPrice: entry, cost: perCost * rows.length,
+    targetPct: Number(first.target_pct ?? 0), targetPrice: Number(first.target_price ?? 0), stopLossPct: 0, stopLossPrice: null,
+  }));
+
+  res.status(201);
+  return { requested: count, placed: rows.map(mapOrder), failed };
+}));
 
 api.post('/orders', wrap(async (req, res) => {
   const body = parse(orderSchema, req.body);

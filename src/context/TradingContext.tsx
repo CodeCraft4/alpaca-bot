@@ -26,6 +26,8 @@ export interface NewOrderPayload {
   side: OrderSide;
   type: OrderType;
   quantity?: number;
+  /** Several identical BUY orders placed at once (1 to 20) */
+  count?: number;
   dollarAmount?: number;
   limitPrice?: number;
   targetPct: number;
@@ -310,7 +312,8 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [refreshAlpacaData]);
 
   const createNewOrder: TradingContextType['createNewOrder'] = async (p) => {
-    const what = `${p.side.toUpperCase()} ${p.dollarAmount ? `$${p.dollarAmount.toFixed(2)}` : `${fmtQty(p.quantity ?? 0)} sh`}`;
+    const n = p.count ?? 1;
+    const what = `${n > 1 ? `${n} × ` : ''}${p.side.toUpperCase()} ${p.dollarAmount ? `$${p.dollarAmount.toFixed(2)}` : `${fmtQty(p.quantity ?? 0)} sh`}`;
     notify(`Sending ${what}…`);
     const t0 = performance.now();
     try {
@@ -325,6 +328,21 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
       else body.qty = p.quantity;
       if (p.type === 'Limit' && p.limitPrice) body.limitPrice = p.limitPrice;
       if (p.notes) body.notes = p.notes;
+      if (n > 1) {
+        const r = await api<{ requested: number; placed: ApiOrder[]; failed: { error: string }[] }>('/orders/batch', {
+          method: 'POST',
+          body: JSON.stringify({ ...body, count: n }),
+        });
+        void refreshAlpacaData();
+        const ms = Math.round(performance.now() - t0);
+        notify(
+          r.failed.length
+            ? `${r.placed.length} of ${r.requested} orders placed in ${ms} ms · ${r.failed.length} failed: ${r.failed[0].error}`
+            : `${r.placed.length} orders placed in ${ms} ms`,
+          r.failed.length ? 'error' : 'success',
+        );
+        return { success: r.placed.length > 0, orderId: r.placed[0]?.id ?? '' };
+      }
       const o = await api<ApiOrder>('/orders', { method: 'POST', body: JSON.stringify(body) });
       void refreshAlpacaData();
       notify(`${what} placed in ${Math.round(performance.now() - t0)} ms`, 'success');

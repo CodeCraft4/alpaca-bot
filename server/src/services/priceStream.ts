@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import WebSocket from 'ws';
 import { alpaca } from '../alpaca.js';
 import { config } from '../config.js';
 import { fhQuote, finnhubConfigured } from './finnhub.js';
@@ -70,8 +71,15 @@ let backoff = 1000;
 function connectSocket() {
   if (!finnhubConfigured()) return;
   const sym = symbol();
-  ws = new WebSocket(`wss://ws.finnhub.io?token=${config.FINNHUB_API_KEY}`);
+  try {
+    ws = new WebSocket(`wss://ws.finnhub.io?token=${config.FINNHUB_API_KEY}`);
+  } catch (e) {
+    // the live stream is a bonus: if it cannot start, the REST checks still keep the price fresh
+    console.error('price stream: could not open the WebSocket:', (e as Error).message);
+    return;
+  }
   ws.addEventListener('open', () => {
+    console.log('price stream: connected to Finnhub');
     backoff = 1000;
     ws?.send(JSON.stringify({ type: 'subscribe', symbol: sym }));
   });

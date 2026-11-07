@@ -14,7 +14,13 @@ export async function syncAll() {
     alpaca.account(),
   ]);
 
-  for (const o of orders) await upsertAlpacaOrder(o);
+  // Orders from before a "fresh start" are ignored (Alpaca still keeps them, but they are no longer part of this history)
+  const freshAt = (await query('select fresh_start_at from settings where id = 1'))[0]?.fresh_start_at;
+  const cutoff = freshAt ? new Date(freshAt).getTime() : 0;
+  for (const o of orders) {
+    if (cutoff && new Date(o.submitted_at ?? o.created_at).getTime() < cutoff) continue;
+    await upsertAlpacaOrder(o);
+  }
 
   const created = await rebuildTrades();
   const newTrades = created.length;

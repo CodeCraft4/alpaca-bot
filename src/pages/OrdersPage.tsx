@@ -17,13 +17,15 @@ import { OrderDetailsModal } from '../components/orders/OrderDetailsModal';
 import { EditTargetsModal } from '../components/orders/EditTargetsModal';
 import { CancelOrderModal } from '../components/orders/CancelOrderModal';
 import { NewOrderModal } from '../components/orders/NewOrderModal';
+import { MarketClosed3D } from '../components/ui/icons3d';
 import type { OrderItem } from '../types/trading';
 
 const PAGE_SIZE = 8;
 
 export const OrdersPage: React.FC = () => {
   // Shared global Trading Context
-  const { orders, cancelOrder, editOrderTargets, refreshAll } = useTradingContext();
+  const { orders, cancelOrder, editOrderTargets, refreshAll, marketOpen, marketStatusKnown } = useTradingContext();
+  const closed = marketStatusKnown && !marketOpen; // market closed: browsing is fine, trading is off
 
   const [selectedTab, setSelectedTab] = useState<StatusTab>('All Orders');
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,8 +137,12 @@ export const OrdersPage: React.FC = () => {
           {/* New Order Button */}
           <button
             type="button"
-            onClick={() => setIsNewOrderOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-brand-primary text-white hover:bg-brand-sidebar shadow-sm transition-all active:scale-95"
+            onClick={() => !closed && setIsNewOrderOpen(true)}
+            disabled={closed}
+            title={closed ? 'Market is closed: new orders are disabled' : 'Place a new order'}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all ${
+              closed ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-brand-primary text-white hover:bg-brand-sidebar active:scale-95'
+            }`}
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Order</span>
@@ -156,6 +162,16 @@ export const OrdersPage: React.FC = () => {
     >
       {/* 2. Order Statistics Cards */}
       <section>
+        {closed && (
+          <div role="status" className="flex items-center gap-3 rounded-2xl border-2 border-red-200 bg-red-50 px-4 py-3">
+            <MarketClosed3D size={40} />
+            <div>
+              <p className="text-sm font-extrabold uppercase tracking-wide text-red-600">Market closed</p>
+              <p className="text-xs text-red-900/80">You can review your orders and history. New orders and selling are disabled until the market opens.</p>
+            </div>
+          </div>
+        )}
+
         <HoldingsSummary />
         <LiveOpenOrders onViewDetails={setSelectedOrderForDetails} onEditTargets={setSelectedOrderForEdit} />
         <OrderStatsCards orders={orders} />

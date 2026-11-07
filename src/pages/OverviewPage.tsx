@@ -6,6 +6,7 @@ import { ABNBPriceChart } from '../components/overview/ABNBPriceChart';
 import { AIMarketAnalysisCard } from '../components/overview/AIMarketAnalysisCard';
 import { OpenPositionsTable } from '../components/overview/OpenPositionsTable';
 import { WaitingOrdersCard } from '../components/overview/WaitingOrdersCard';
+import { MarketClosedScreen } from '../components/overview/MarketClosedScreen';
 // import { RecentActivityList } from '../components/overview/RecentActivityList';
 import { NewOrderModal } from '../components/orders/NewOrderModal';
 import { useTradingContext } from '../context/TradingContext';
@@ -17,7 +18,7 @@ import {
 } from '../components/ui/icons3d';
 
 export const OverviewPage: React.FC = () => {
-  const { equity, availableCash, openPositions, completedTrades, currentPrice, refreshAll, lastUpdated } = useTradingContext();
+  const { equity, availableCash, openPositions, completedTrades, currentPrice, refreshAll, lastUpdated, marketOpen, marketStatusKnown } = useTradingContext();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -48,6 +49,15 @@ export const OverviewPage: React.FC = () => {
   const baseCapital = equity - netPL > 0 ? equity - netPL : 100;
   const netPLPct = ((netPL / baseCapital) * 100).toFixed(2);
   const changeFormatted = `${isPositive ? '+' : ''}${netPLPct}%`;
+
+  // Market closed (weekend, night, holiday): show only the closed screen, nothing can be traded
+  if (marketStatusKnown && !marketOpen) {
+    return (
+      <PageContainer title="Overview Dashboard" description="The US stock market is closed. Trading is paused.">
+        <MarketClosedScreen />
+      </PageContainer>
+    );
+  }
 
   return (
     <>

@@ -43,6 +43,8 @@ export interface TradingContextType {
   dailyChange: number;
   dailyChangePct: number;
   marketOpen: boolean;
+  /** false until the first answer from the backend; the "market closed" screen waits for this */
+  marketStatusKnown: boolean;
   nextOpen: string; // when the market opens next (ISO)
   priceSource: string;
   /** Time of the last real trade (ms) and Alpaca's own last price, for the "how fresh is this" display */
@@ -200,6 +202,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [equity, setEquity] = useState(0);
   const [availableCash, setAvailableCash] = useState(0);
   const [marketOpen, setMarketOpen] = useState(false);
+  const [marketStatusKnown, setMarketStatusKnown] = useState(false);
   const [priceSource, setPriceSource] = useState('');
   const [nextOpen, setNextOpen] = useState('');
   const [lastTradeTs, setLastTradeTs] = useState(0);
@@ -244,6 +247,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
         setDailyChangePct(quote.changePct);
       }
       setMarketOpen(quote.marketOpen);
+      setMarketStatusKnown(true);
       setPriceSource(quote.source);
       setNextOpen(quote.nextOpen);
       setEquity(account.equity);
@@ -410,7 +414,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
   return (
     <TradingContext.Provider
       value={{
-        equity, availableCash, currentPrice, dailyChange, dailyChangePct, marketOpen, nextOpen, priceSource, lastTradeTs, alpacaPrice, streamLive, isConnecting, lastUpdated,
+        equity, availableCash, currentPrice, dailyChange, dailyChangePct, marketOpen, marketStatusKnown, nextOpen, priceSource, lastTradeTs, alpacaPrice, streamLive, isConnecting, lastUpdated,
         backendError, openPositions, orders, completedTrades, recentActivities, settings,
         createNewOrder, cancelOrder, editOrderTargets, sellPosition, sellOrder, updateSettings, resetSettings, refreshAlpacaData, refreshAll, refreshNonce,
       }}

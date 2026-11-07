@@ -11,7 +11,8 @@ export interface LiveOpenOrdersProps {
 
 /** Every buy order that still holds shares, with its live profit / loss. */
 export const LiveOpenOrders: React.FC<LiveOpenOrdersProps> = ({ onViewDetails, onEditTargets }) => {
-  const { orders, currentPrice, settings, sellOrder, priceSource } = useTradingContext();
+  const { orders, currentPrice, settings, sellOrder, priceSource, marketOpen, marketStatusKnown } = useTradingContext();
+  const closed = marketStatusKnown && !marketOpen;
   const open = orders.filter((o) => o.status === 'Filled' && o.side === 'Buy' && (o.openQty ?? 0) > 1e-8);
 
   const rows = open.map((o) => {
@@ -124,8 +125,9 @@ export const LiveOpenOrders: React.FC<LiveOpenOrdersProps> = ({ onViewDetails, o
                       <button
                         type="button"
                         onClick={() => void handleSell(r)}
-                        disabled={sellingId === r.o.id}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-primary text-white hover:bg-brand-sidebar transition-colors shadow-sm active:scale-95 disabled:opacity-60"
+                        disabled={sellingId === r.o.id || closed}
+                        title={closed ? 'Market is closed: selling is disabled' : 'Sell now'}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-primary text-white hover:bg-brand-sidebar transition-colors shadow-sm active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         {sellingId === r.o.id ? 'Selling…' : 'Sell'}
                       </button>

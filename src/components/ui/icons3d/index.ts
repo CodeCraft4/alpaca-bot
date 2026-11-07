@@ -21,3 +21,4 @@ export * from './Server3D';
 export * from './Radio3D';
 export * from './Database3D';
 export * from './Shield3D';
+export * from './MarketClosed3D';

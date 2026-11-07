@@ -24,7 +24,8 @@ const lastAmount = () => {
  * and closes the window at once. The result arrives as a toast (see TradingContext).
  */
 export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose }) => {
-  const { currentPrice, availableCash, settings, createNewOrder, priceSource, openPositions } = useTradingContext();
+  const { currentPrice, availableCash, settings, createNewOrder, priceSource, openPositions, marketOpen, marketStatusKnown } = useTradingContext();
+  const closed = marketStatusKnown && !marketOpen;
 
   const [side, setSide] = useState<OrderSide>('Buy');
   const [orderType, setOrderType] = useState<OrderType>('Market');
@@ -68,6 +69,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose })
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (closed) return setErrorMessage('Market is closed: orders are disabled.');
     if (num <= 0) return setErrorMessage('Enter an amount.');
     if (isBuy && totalDollars > availableCash + 0.005) {
       return setErrorMessage(`Not enough cash: ${orderCount} × $${dollars.toFixed(2)} = $${totalDollars.toFixed(2)}, but $${availableCash.toFixed(2)} is available.`);
@@ -285,7 +287,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose })
           </button>
           <button
             type="submit"
-            className={`col-span-2 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm active:scale-[0.98] transition-transform ${isBuy ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-primary hover:bg-brand-sidebar'}`}
+            disabled={closed}
+            className={`col-span-2 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm active:scale-[0.98] transition-transform disabled:bg-gray-300 disabled:cursor-not-allowed ${isBuy ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-primary hover:bg-brand-sidebar'}`}
           >
             Place {orderCount > 1 ? `${orderCount} ` : ''}{side.toUpperCase()} Order{orderCount > 1 ? 's' : ''} (${totalDollars.toFixed(2)})
           </button>

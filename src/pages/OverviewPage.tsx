@@ -8,8 +8,12 @@ import { OpenPositionsTable } from '../components/overview/OpenPositionsTable';
 import { WaitingOrdersCard } from '../components/overview/WaitingOrdersCard';
 import { MarketClosedScreen } from '../components/overview/MarketClosedScreen';
 // import { RecentActivityList } from '../components/overview/RecentActivityList';
+import { LiveOpenOrders } from '../components/orders/LiveOpenOrders';
+import { OrderDetailsModal } from '../components/orders/OrderDetailsModal';
+import { EditTargetsModal } from '../components/orders/EditTargetsModal';
 import { NewOrderModal } from '../components/orders/NewOrderModal';
 import { useTradingContext } from '../context/TradingContext';
+import type { OrderItem } from '../types/trading';
 import {
   Wallet3D,
   Cash3D,
@@ -18,7 +22,7 @@ import {
 } from '../components/ui/icons3d';
 
 export const OverviewPage: React.FC = () => {
-  const { equity, availableCash, openPositions, completedTrades, currentPrice, refreshAll, lastUpdated, marketOpen, marketStatusKnown } = useTradingContext();
+  const { equity, availableCash, openPositions, orders, editOrderTargets, completedTrades, currentPrice, refreshAll, lastUpdated, marketOpen, marketStatusKnown } = useTradingContext();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -29,6 +33,13 @@ export const OverviewPage: React.FC = () => {
     }
   };
   const [isOrderModalOpen, setIsOrderModalOpen] = useState<boolean>(false);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<OrderItem | null>(null);
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<OrderItem | null>(null);
+
+  // Active buy orders that still hold shares
+  const openOrders = useMemo(() => {
+    return orders.filter((o) => o.status === 'Filled' && o.side === 'Buy' && (o.openQty ?? 0) > 1e-8);
+  }, [orders]);
 
   // Compute live unrealized & realized net profit
   const totalUnrealizedPL = useMemo(() => {
@@ -113,8 +124,14 @@ export const OverviewPage: React.FC = () => {
           />
           <SummaryStatCard
             label="Currently Open"
-            value={`${openPositions.length}`}
-            subtext={openPositions.length === 1 ? '1 active position' : `${openPositions.length} active positions`}
+            value={`${openOrders.length || openPositions.length}`}
+            subtext={
+              openOrders.length > 0
+                ? `${openOrders.length} active ${openOrders.length === 1 ? 'order' : 'orders'} (${openPositions.length} position)`
+                : openPositions.length === 1
+                  ? '1 active position'
+                  : `${openPositions.length} active positions`
+            }
             icon3d={<Layers3D size={38} />}
           />
           <SummaryStatCard
@@ -141,14 +158,25 @@ export const OverviewPage: React.FC = () => {
           </div>
         </section>
 
-        {/* 3. Orders accepted but not filled yet (e.g. placed while the market is closed), then open positions */}
+        {/* 3. Orders accepted but not filled yet (e.g. placed while the market is closed) */}
         <WaitingOrdersCard />
 
+        {/* 4. Live open orders holding shares (each sells automatically at its own target) */}
+        {openOrders.length > 0 && (
+          <section>
+            <LiveOpenOrders
+              onViewDetails={(order) => setSelectedOrderForDetails(order)}
+              onEditTargets={(order) => setSelectedOrderForEdit(order)}
+            />
+          </section>
+        )}
+
+        {/* 5. Consolidated Portfolio Positions */}
         <section>
           <OpenPositionsTable />
         </section>
 
-        {/* 4. Recent Activity Feed */}
+        {/* 6. Recent Activity Feed */}
         {/* <section>
           <RecentActivityList />
         </section> */}
@@ -158,6 +186,21 @@ export const OverviewPage: React.FC = () => {
       <NewOrderModal
         isOpen={isOrderModalOpen}
         onClose={() => setIsOrderModalOpen(false)}
+      />
+
+      {/* Order Details Modal on Overview */}
+      <OrderDetailsModal
+        order={selectedOrderForDetails}
+        isOpen={Boolean(selectedOrderForDetails)}
+        onClose={() => setSelectedOrderForDetails(null)}
+      />
+
+      {/* Edit Targets Modal on Overview */}
+      <EditTargetsModal
+        order={selectedOrderForEdit}
+        isOpen={Boolean(selectedOrderForEdit)}
+        onClose={() => setSelectedOrderForEdit(null)}
+        onSave={editOrderTargets}
       />
     </>
   );

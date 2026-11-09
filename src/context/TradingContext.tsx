@@ -344,6 +344,8 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
           body: JSON.stringify({ ...body, count: n }),
         });
         void refreshAlpacaData();
+        setTimeout(() => void refreshAlpacaData(), 800);
+        setTimeout(() => void refreshAlpacaData(), 2200);
         const ms = Math.round(performance.now() - t0);
         notify(
           r.failed.length
@@ -355,6 +357,8 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
       const o = await api<ApiOrder>('/orders', { method: 'POST', body: JSON.stringify(body) });
       void refreshAlpacaData();
+      setTimeout(() => void refreshAlpacaData(), 800);
+      setTimeout(() => void refreshAlpacaData(), 2200);
       notify(`${what} placed in ${Math.round(performance.now() - t0)} ms`, 'success');
       return { success: true, orderId: o.id };
     } catch (e) {

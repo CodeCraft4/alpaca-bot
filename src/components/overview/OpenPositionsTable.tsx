@@ -68,7 +68,7 @@ export const OpenPositionsTable: React.FC = () => {
               <h2 className="text-base font-bold text-brand-text">
                 Open Positions <span className="text-brand-muted font-semibold">({openPositions.length})</span>
               </h2>
-              <p className="text-xs text-brand-muted">Live profit &amp; loss on every open paper position</p>
+              <p className="text-xs text-brand-muted">Consolidated Alpaca portfolio positions across all active orders</p>
             </div>
           </div>
 
@@ -114,8 +114,15 @@ export const OpenPositionsTable: React.FC = () => {
                           {pos.symbol.substring(0, 2)}
                         </span>
                         <div>
-                          <span className="font-bold text-brand-text block">{pos.symbol}</span>
-                          <span className="text-[10px] text-brand-muted font-normal">Paper Stock</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-brand-text">{pos.symbol}</span>
+                            {lotsOf(pos).length > 0 && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-pink-100 text-brand-primary">
+                                {lotsOf(pos).length} {lotsOf(pos).length === 1 ? 'order' : 'orders'}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-brand-muted font-normal">Paper Stock · Consolidated</span>
                         </div>
                       </div>
                     </td>

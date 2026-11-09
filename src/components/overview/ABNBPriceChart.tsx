@@ -67,7 +67,7 @@ const CustomTooltip: React.FC<TipProps> = ({ active, payload, tf }) => {
 };
 
 export const ABNBPriceChart: React.FC = () => {
-  const { currentPrice, dailyChange, dailyChangePct, marketOpen, lastUpdated, priceSource, openPositions, refreshNonce, lastTradeTs, alpacaPrice, streamLive } =
+  const { currentPrice, dailyChange, dailyChangePct, marketOpen, lastUpdated, priceSource, openPositions, orders, refreshNonce, lastTradeTs, alpacaPrice, streamLive } =
     useTradingContext();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -81,6 +81,58 @@ export const ABNBPriceChart: React.FC = () => {
   const [bars, setBars] = useState<Bar[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showEntries, setShowEntries] = useState(true);
+  const [showTargets, setShowTargets] = useState(false);
+
+  // Active buy orders holding shares
+  const activeOrders = useMemo(() => {
+    return orders.filter(
+      (o) => o.status === 'Filled' && o.side === 'Buy' && (o.openQty ?? 0) > 1e-8
+    );
+  }, [orders]);
+
+  // Group active orders by entry price
+  const activeEntries = useMemo(() => {
+    const map = new Map<number, { price: number; qty: number; count: number; orderIds: string[] }>();
+    for (const o of activeOrders) {
+      const p = +( (o.avgFillPrice ?? o.entryPrice ?? 0).toFixed(2) );
+      if (p <= 0) continue;
+      const existing = map.get(p);
+      if (existing) {
+        existing.qty += o.openQty ?? 0;
+        existing.count += 1;
+        existing.orderIds.push(o.id.slice(0, 8));
+      } else {
+        map.set(p, {
+          price: p,
+          qty: o.openQty ?? 0,
+          count: 1,
+          orderIds: [o.id.slice(0, 8)],
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.price - b.price);
+  }, [activeOrders]);
+
+  // Target prices for active orders
+  const activeTargets = useMemo(() => {
+    const map = new Map<number, { price: number; pct: number; count: number }>();
+    for (const o of activeOrders) {
+      const tp = +( (o.targetPrice ?? 0).toFixed(2) );
+      if (tp <= 0) continue;
+      const existing = map.get(tp);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(tp, {
+          price: tp,
+          pct: o.targetPct,
+          count: 1,
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.price - b.price);
+  }, [activeOrders]);
 
   const timeframes: TimeFrame[] = ['1D', '1W', '1M', '3M', '1Y'];
 
@@ -133,13 +185,19 @@ export const ABNBPriceChart: React.FC = () => {
   const [lo, hi] = useMemo(() => {
     if (!data.length) return [0, 1];
     const vals = data.map((d) => d.price);
-    if (tf === '1D' && prevClose > 0) vals.push(prevClose);
-    if (entry && tf === '1D') vals.push(entry);
+    if ((tf === '1D' || tf === '1W') && prevClose > 0) vals.push(prevClose);
+    if (showEntries && (tf === '1D' || tf === '1W')) {
+      activeEntries.forEach((e) => vals.push(e.price));
+      if (activeEntries.length === 0 && entry) vals.push(entry);
+    }
+    if (showTargets && (tf === '1D' || tf === '1W')) {
+      activeTargets.forEach((t) => vals.push(t.price));
+    }
     const min = Math.min(...vals);
     const max = Math.max(...vals);
     const pad = Math.max((max - min) * 0.12, 0.25);
     return [Math.floor((min - pad) * 100) / 100, Math.ceil((max + pad) * 100) / 100];
-  }, [data, tf, prevClose, entry]);
+  }, [data, tf, prevClose, showEntries, showTargets, activeEntries, activeTargets, entry]);
 
   const isProfit = dailyChange >= 0;
 
@@ -169,19 +227,50 @@ export const ABNBPriceChart: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-brand-bg p-1 rounded-xl border border-brand-border shrink-0 self-start sm:self-center">
-          {timeframes.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTf(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                tf === t ? 'bg-brand-primary text-white shadow-sm' : 'text-brand-muted hover:text-brand-text hover:bg-white/60'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 shrink-0 self-start sm:self-center">
+          {activeOrders.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowEntries((v) => !v)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                  showEntries
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm'
+                    : 'bg-white text-brand-muted border-brand-border hover:bg-gray-50'
+                }`}
+                title="Toggle active order entry lines on chart"
+              >
+                Entries ({activeOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTargets((v) => !v)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                  showTargets
+                    ? 'bg-purple-50 text-purple-700 border-purple-300 shadow-sm'
+                    : 'bg-white text-brand-muted border-brand-border hover:bg-gray-50'
+                }`}
+                title="Toggle profit target lines on chart"
+              >
+                Targets
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1 bg-brand-bg p-1 rounded-xl border border-brand-border">
+            {timeframes.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTf(t)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                  tf === t ? 'bg-brand-primary text-white shadow-sm' : 'text-brand-muted hover:text-brand-text hover:bg-white/60'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -234,12 +323,56 @@ export const ABNBPriceChart: React.FC = () => {
 
             <Tooltip content={<CustomTooltip tf={tf} />} />
 
+            {/* Previous Close Reference Line */}
             {tf === '1D' && prevClose > 0 && (
               <ReferenceLine y={prevClose} stroke="#9CA3AF" strokeDasharray="4 4" label={{ value: `Prev close $${prevClose.toFixed(2)}`, position: 'insideBottomLeft', fill: '#6B7280', fontSize: 10 }} />
             )}
-            {entry && tf === '1D' && (
+
+            {/* Active Order Entries */}
+            {showEntries && (tf === '1D' || tf === '1W') && activeEntries.length > 0 &&
+              activeEntries.map((e, idx) => (
+                <ReferenceLine
+                  key={`entry-${e.price}-${idx}`}
+                  y={e.price}
+                  stroke="#16A34A"
+                  strokeDasharray="3 3"
+                  strokeWidth={1.5}
+                  label={{
+                    value:
+                      activeEntries.length === 1
+                        ? `Entry $${e.price.toFixed(2)} (${e.qty.toFixed(4)} sh)`
+                        : `Entry #${idx + 1}: $${e.price.toFixed(2)} (${e.count > 1 ? `${e.count} orders · ` : ''}${e.qty.toFixed(4)} sh)`,
+                    position: idx % 2 === 0 ? 'insideTopLeft' : 'insideBottomLeft',
+                    fill: '#15803D',
+                    fontSize: 10,
+                    fontWeight: 600,
+                  }}
+                />
+              ))}
+
+            {/* Fallback to single consolidated entry */}
+            {showEntries && (tf === '1D' || tf === '1W') && activeEntries.length === 0 && entry && (
               <ReferenceLine y={entry} stroke="#16A34A" strokeDasharray="2 3" label={{ value: `Your entry $${entry.toFixed(2)}`, position: 'insideTopLeft', fill: '#15803D', fontSize: 10 }} />
             )}
+
+            {/* Active Order Targets */}
+            {showTargets && (tf === '1D' || tf === '1W') &&
+              activeTargets.map((t, idx) => (
+                <ReferenceLine
+                  key={`target-${t.price}-${idx}`}
+                  y={t.price}
+                  stroke="#8B5CF6"
+                  strokeDasharray="4 4"
+                  strokeWidth={1.5}
+                  label={{
+                    value: `Target: $${t.price.toFixed(2)} (+${t.pct}%)`,
+                    position: idx % 2 === 0 ? 'insideTopRight' : 'insideBottomRight',
+                    fill: '#7C3AED',
+                    fontSize: 10,
+                    fontWeight: 600,
+                  }}
+                />
+              ))}
 
             <Area
               type="monotone"
@@ -255,18 +388,27 @@ export const ABNBPriceChart: React.FC = () => {
         </ResponsiveContainer>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-brand-muted pt-3 border-t border-brand-border/60 mt-2">
-        <div className="flex items-center gap-1.5">
-          <TrendingUp className="w-3.5 h-3.5 text-brand-primary" />
-          <span>
-            {streamLive ? 'Live stream' : 'Polling'}: Finnhub ${currentPrice.toFixed(2)}
-            {alpacaPrice != null && (
-              <>
-                {' '}· Alpaca IEX ${alpacaPrice.toFixed(2)}{' '}
-                <span className="font-mono">({alpacaPrice - currentPrice >= 0 ? '+' : '-'}${Math.abs(alpacaPrice - currentPrice).toFixed(2)})</span>
-              </>
-            )}
-          </span>
+      <div className="flex flex-wrap items-center justify-between text-xs text-brand-muted pt-3 border-t border-brand-border/60 mt-2 gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5 text-brand-primary" />
+            <span>
+              {streamLive ? 'Live stream' : 'Polling'}: Finnhub ${currentPrice.toFixed(2)}
+              {alpacaPrice != null && (
+                <>
+                  {' '}· Alpaca IEX ${alpacaPrice.toFixed(2)}{' '}
+                  <span className="font-mono">({alpacaPrice - currentPrice >= 0 ? '+' : '-'}${Math.abs(alpacaPrice - currentPrice).toFixed(2)})</span>
+                </>
+              )}
+            </span>
+          </div>
+
+          {activeEntries.length > 0 && (
+            <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+              <span className="w-2 h-0.5 bg-emerald-600 inline-block rounded-full" />
+              <span>{activeOrders.length} active order {activeOrders.length === 1 ? 'entry' : 'entries'} on chart</span>
+            </div>
+          )}
         </div>
         <span className="font-mono text-[11px]">Updated: {lastUpdated}</span>
       </div>
